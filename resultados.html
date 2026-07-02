@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Painel de Tempos</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background-color: #f8f9fa; }
+        .header-container { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .qr-code { width: 90px; height: 90px; }
+        .etapa-titulo { font-size: 24px; font-weight: bold; color: #333; margin: 0; }
+        .refresh-info { color: #e74c3c; font-weight: bold; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; background: white; margin-top: 10px; margin-bottom: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        th, td { border: 1px solid #dee2e6; padding: 12px; text-align: left; }
+        th { background-color: #343a40; color: white; }
+        h3 { color: #2c3e50; border-left: 5px solid #27ae60; padding-left: 10px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="header-container">
+        <div>
+            <p class="etapa-titulo" id="displayEtapa">CARREGANDO ETAPA...</p>
+            <p id="dataRelatorio" style="margin: 5px 0; color: #666;"></p>
+        </div>
+        <div style="text-align: right;">
+            <img src="https://raw.githubusercontent.com/italomota2011/crono/main/QR.png" class="qr-code" alt="QR Code">
+            <div class="refresh-info">Atualiza em: <span id="countdown">5</span>s</div>
+        </div>
+    </div>
+
+    <div id="conteudoTabelas"></div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC4ajZM_W0_qGOlrlRoPn6DUsUBUm4qAcc",
+            authDomain: "crono-rrb.firebaseapp.com",
+            databaseURL: "https://crono-rrb-default-rtdb.firebaseio.com",
+            projectId: "crono-rrb",
+            storageBucket: "crono-rrb.firebasestorage.app",
+            messagingSenderId: "1472207720",
+            appId: "1:1472207720:web:11502aed4117b1fda714dd"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        function tParaMs(t) {
+            if (!t || t === "00:00:000") return 0;
+            const p = t.split(':');
+            return (parseInt(p[0]) * 60000) + (parseInt(p[1]) * 1000) + parseInt(p[2]);
+        }
+
+        function msParaT(ms) {
+            if (ms === 0) return "00:00:000";
+            const min = Math.floor(ms / 60000);
+            const seg = Math.floor((ms % 60000) / 1000);
+            const mil = ms % 1000;
+            return `${String(min).padStart(2,'0')}:${String(seg).padStart(2,'0')}:${String(mil).padStart(3,'0')}`;
+        }
+
+        async function renderizar() {
+            const etapaSnap = await db.ref('configuracao/etapaAtual').once('value');
+            document.getElementById('displayEtapa').innerText = etapaSnap.val() || "ETAPA NÃO DEFINIDA";
+            document.getElementById('dataRelatorio').innerText = "Data: " + new Date().toLocaleDateString();
+
+            db.ref('pilotos').once('value', snapshot => {
+                const data = snapshot.val();
+                let lista = [];
+                
+                // AJUSTE CRUCIAL: Dicionário para contar as entradas individuais de cada piloto por categoria
+                let contadorIndividualPorPiloto = {};
+
+                for (let k in data) {
+                    const p = data[k];
+                    const soma = tParaMs(p.volta1) + tParaMs(p.volta2);
+                    
+                    // Chave única para controle (Ex: "PRODUCTION_ITALO")
+                    const chaveControle = `${p.categoria}_${p.piloto}`;
+                    
+                    if (!contadorIndividualPorPiloto[chaveControle]) {
+                        contadorIndividualPorPiloto[chaveControle] = 1;
+                    } else {
+                        contadorIndividualPorPiloto[chaveControle]++;
+                    }
+
+                    lista.push({ 
+                        ...p, 
+                        totalMs: soma, 
+                        totalStr: msParaT(soma),
+                        numeroEntrada: contadorIndividualPorPiloto[chaveControle] // Salva o número correto do piloto antes de ordenar
+                    });
+                }
+
+                const categorias = ["PRODUCTION", "SUPER PRODUCTION", "PROTOTIPO", "UTV", "INICIANTE"];
+                let html = '';
+
+                categorias.forEach(cat => {
+                    let filtrados = lista.filter(p => p.categoria === cat);
+                    
+                    if (filtrados.length > 0) {
+                        // Ordena a lista da categoria pelos menores tempos (ordem crescente)
+                        filtrados.sort((a, b) => a.totalMs - b.totalMs);
+
+                        html += `<h3>CATEGORIA: ${cat}</h3><table><thead><tr><th>Entrada de Pista</th><th>Piloto</th><th>Volta 1</th><th>Volta 2</th><th>Total</th></tr></thead><tbody>`;
+                        
+                        filtrados.forEach((p) => {
+                            html += `<tr><td>${p.numeroEntrada}</td><td>${p.piloto}</td><td>${p.volta1}</td><td>${p.volta2}</td><td><strong>${p.totalStr}</strong></td></tr>`;
+                        });
+                        html += `</tbody></table>`;
+                    }
+                });
+                document.getElementById('conteudoTabelas').innerHTML = html || "<p>Nenhum tempo registrado.</p>";
+            });
+        }
+
+        let segundos = 5;
+        setInterval(() => {
+            segundos--;
+            document.getElementById('countdown').innerText = segundos;
+            if (segundos <= 0) { renderizar(); segundos = 5; }
+        }, 1000);
+
+        window.onload = renderizar;
+    </script>
+</body>
+</html>
