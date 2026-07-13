@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rally Indoor</title>
+    <title>Rally Indoor 4x4</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <style>
@@ -66,7 +66,7 @@
             
             <hr>
             <button class="btn-nav" onclick="window.location.href='alteracao.html'">ALTERAR DADOS</button>
-            <button class="btn-nav" onclick="window.location.href='resultados.html'" style="background-color: #6c757d;">VER RESULTADOS</button>
+            <button class="btn-nav" onclick="window.location.href='index.html'" style="background-color: #6c757d;">VER RESULTADOS</button>
             
             <button class="btn-clear" onclick="limparBanco()">LIMPAR TODOS OS DADOS</button>
         </div>
@@ -245,7 +245,9 @@
             img.onload = function() {
                 doc.addImage(img, 'PNG', 10, 10, 30, 30);
                 doc.setFontSize(18);
-                doc.text(`CLASSIFICAÇÃO GERAL DA PROVA`, 45, 22);
+                doc.text("RELATÓRIO DE PROVA", 46, 18); //[cite: 1]
+                doc.setFontSize(12);
+                doc.text("CAMPEONATO BRASILEIRO DE RALLY INDOOR 4X4", 46, 25); //[cite: 1] 
                 doc.setFontSize(12);
                 doc.text(`${nomeEtapa}`, 45, 30);
                 doc.setFontSize(10);
