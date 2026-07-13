@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rally Indoor 4x4</title>
+    <title>Rally Indoor 4x4 - Admin</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <style>
@@ -26,8 +26,10 @@
         <div class="card">
             <img src="https://raw.githubusercontent.com/racekrono/adv/refs/heads/main/Logo.png" alt="Logo">
             
+            <!-- Campo da Etapa -->
             <input type="text" id="etapa" placeholder="Nome da Etapa (ex: GP Brasil)" oninput="atualizarEtapaFirebase()">
             
+            <!-- Seleção da Categoria -->
             <select id="categoria">
                 <option value="PRODUCTION">PRODUCTION</option>
                 <option value="SUPER PRODUCTION">SUPER PRODUCTION</option>
@@ -36,8 +38,12 @@
                 <option value="INICIANTE">INICIANTE</option>
             </select>
 
-            <input type="text" id="piloto" placeholder="Nome do Piloto" style="text-transform: uppercase;">
+            <!-- NOVIDADE: Seletor de Pilotos Pré-Cadastrados -->
+            <select id="piloto">
+                <option value="">Carregando pilotos...</option>
+            </select>
             
+            <!-- Campo de Tempo -->
             <input type="text" id="tempo" placeholder="00:00:000" maxlength="9">
 
             <button class="btn-save" onclick="enviarDados()">SALVA VOLTA</button>
@@ -56,28 +62,56 @@
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
 
     <script>
+        // Substitua aqui pelas credenciais do seu NOVO projeto assim que criá-lo!
         const firebaseConfig = {
-
-  apiKey: "AIzaSyA5ZUlJJUt48nmM9ef99YpKMX23pPiv_zs",
-
-  authDomain: "indoorbr.firebaseapp.com",
-
-  projectId: "indoorbr",
-
-  storageBucket: "indoorbr.firebasestorage.app",
-
-  messagingSenderId: "97329207938",
-
-  appId: "1:97329207938:web:d5fe8eb7a8bdc91d44329b"
-
-};
-
+            apiKey: "AIzaSyC4ajZM_W0_qGOlrlRoPn6DUsUBUm4qAcc",
+            authDomain: "crono-rrb.firebaseapp.com",
+            databaseURL: "https://crono-rrb-default-rtdb.firebaseio.com",
+            projectId: "crono-rrb",
+            storageBucket: "crono-rrb.firebasestorage.app",
+            messagingSenderId: "1472207720",
+            appId: "1:1472207720:web:11502aed4117b1fda714dd"
+        };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
+        // Carrega o nome da etapa atual[cite: 3]
         db.ref('configuracao/etapaAtual').on('value', (snapshot) => {
             if(snapshot.exists()) {
                 document.getElementById('etapa').value = snapshot.val();
+            }
+        });
+
+        // NOVIDADE: Busca a lista de pilotos pré-cadastrados e preenche o <select>
+        db.ref('cadastro_pilotos').on('value', (snapshot) => {
+            const selectPiloto = document.getElementById('piloto');
+            selectPiloto.innerHTML = '<option value="">Selecione o Piloto</option>'; // Reseta
+            
+            if (snapshot.exists()) {
+                const dados = snapshot.val();
+                let listaNomes = [];
+
+                // Extrai os nomes (tratando caso seja salvo como objeto ou array)
+                for (let id in dados) {
+                    if (typeof dados[id] === 'string') {
+                        listaNomes.push(dados[id].toUpperCase());
+                    } else if (dados[id] && dados[id].nome) {
+                        listaNomes.push(dados[id].nome.toUpperCase());
+                    }
+                }
+
+                // Ordena os nomes em ordem alfabética para facilitar a busca do mesário
+                listaNomes.sort();
+
+                // Adiciona as opções no seletor
+                listaNomes.forEach(nome => {
+                    const opt = document.createElement('option');
+                    opt.value = nome;
+                    opt.textContent = nome;
+                    selectPiloto.appendChild(opt);
+                });
+            } else {
+                selectPiloto.innerHTML = '<option value="">Nenhum piloto cadastrado</option>';
             }
         });
 
@@ -86,6 +120,7 @@
             db.ref('configuracao').update({ etapaAtual: nome });
         }
 
+        // Máscara do tempo[cite: 3]
         document.getElementById('tempo').addEventListener('input', function (e) {
             let v = e.target.value.replace(/\D/g, '');
             if (v.length > 4) {
@@ -99,11 +134,11 @@
         async function enviarDados() {
             const etapa = document.getElementById('etapa').value;
             const categoria = document.getElementById('categoria').value;
-            const piloto = document.getElementById('piloto').value.trim().toUpperCase();
+            const piloto = document.getElementById('piloto').value; // Pega o valor selecionado no select
             const tempo = document.getElementById('tempo').value;
 
             if (!etapa || !piloto || tempo.length < 9) {
-                alert("Por favor, preencha todos os campos. O tempo deve ter o formato 00:00:000");
+                alert("Por favor, selecione o piloto e preencha o tempo no formato 00:00:000");
                 return;
             }
 
@@ -203,25 +238,20 @@
             img.crossOrigin = "Anonymous";
 
             img.onload = function() {
-                // Desenha a marca na lateral esquerda
                 doc.addImage(img, 'PNG', 15, 12, 26, 26);
                 
-                // Linha 1 do Título Principal
                 doc.setFontSize(16);
                 doc.setTextColor(0, 0, 0);
                 doc.setFont("helvetica", "bold");
                 doc.text("RELATÓRIO DE PROVA", 46, 20);
                 
-                // Linha 2 com tamanho reduzido para caber perfeitamente
                 doc.setFontSize(12);
                 doc.text("CAMPEONATO BAIANO DE RALLY INDOOR 4X4", 46, 27);
                 
-                // Nome da etapa empurrado levemente para baixo
                 doc.setFontSize(11);
                 doc.setFont("helvetica", "normal");
                 doc.text(`${nomeEtapa}`, 46, 34);
                 
-                // Data e hora do relatório
                 doc.setFontSize(10);
                 doc.setTextColor(100, 100, 100);
                 doc.text(`${new Date().toLocaleString()}`, 46, 40);
