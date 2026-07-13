@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rally Indoor 4x4 - Admin</title>
+    <title>Rally Indoor 4x4</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <style>
@@ -29,8 +29,8 @@
             <!-- Campo da Etapa -->
             <input type="text" id="etapa" placeholder="Nome da Etapa (ex: GP Brasil)" oninput="atualizarEtapaFirebase()">
             
-            <!-- Seleção da Categoria -->
-            <select id="categoria">
+            <!-- Seleção da Categoria (Chama a função de atualizar os pilotos ao mudar) -->
+            <select id="categoria" onchange="atualizarSeletorPilotos()">
                 <option value="PRODUCTION">PRODUCTION</option>
                 <option value="SUPER PRODUCTION">SUPER PRODUCTION</option>
                 <option value="PROTOTIPO">PROTOTIPO</option>
@@ -38,9 +38,9 @@
                 <option value="INICIANTE">INICIANTE</option>
             </select>
 
-            <!-- Seletor Dinâmico de Pilotos Corrigido -->
+            <!-- Seletor de Pilotos Filtrado -->
             <select id="piloto">
-                <option value="">Carregando pilotos...</option>
+                <option value="">Selecione a Categoria primeiro</option>
             </select>
             
             <!-- Campo de Tempo -->
@@ -54,7 +54,7 @@
             <button class="btn-nav" onclick="window.location.href='alteracao.html'">ALTERAR DADOS</button>
             <button class="btn-nav" onclick="window.location.href='index.html'" style="background-color: #6c757d;">VER RESULTADOS</button>
             
-            <button class="btn-clear" onclick="limparBanco()">LIMPAR TODOS OS DADOS</button>
+            <button class="btn-clear" onclick="limparBanco()">LIMPAR APENAS OS TEMPOS</button>
         </div>
     </div>
 
@@ -62,7 +62,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
 
     <script>
-        // ATUALIZADO: Usando agora o novo projeto 'indoorbr'
         const firebaseConfig = {
             apiKey: "AIzaSyA5ZUlJJUt48nmM9ef99YpKMX23pPiv_zs",
             authDomain: "indoorbr.firebaseapp.com",
@@ -74,6 +73,9 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
+        // Variável global para armazenar temporariamente o snapshot dos pilotos
+        let cachePilotosCadastrados = null;
+
         // Carrega o nome da etapa atual
         db.ref('configuracao/etapaAtual').on('value', (snapshot) => {
             if(snapshot.exists()) {
@@ -81,23 +83,31 @@
             }
         });
 
-        // CORRIGIDO: Monitorando a tabela correta 'lista_pilotos' e mapeando .nome
+        // Ouve a lista de pilotos e armazena em cache para atualizar dinamicamente
         db.ref('lista_pilotos').on('value', (snapshot) => {
+            cachePilotosCadastrados = snapshot.val();
+            atualizarSeletorPilotos(); // Atualiza a lista com base na categoria que estiver selecionada no momento
+        });
+
+        // NOVIDADE: Função que filtra e exibe os pilotos da categoria selecionada
+        function atualizarSeletorPilotos() {
             const selectPiloto = document.getElementById('piloto');
+            const categoriaSelecionada = document.getElementById('categoria').value;
+            
             selectPiloto.innerHTML = '<option value="">Selecione o Piloto</option>'; 
             
-            if (snapshot.exists()) {
-                const dados = snapshot.val();
+            if (cachePilotosCadastrados) {
                 let listaNomes = [];
 
-                for (let id in dados) {
-                    if (dados[id] && dados[id].nome) {
-                        listaNomes.push(dados[id].nome.toUpperCase());
+                // Percorre os registros buscando apenas quem pertence à categoria atual
+                for (let id in cachePilotosCadastrados) {
+                    const registro = cachePilotosCadastrados[id];
+                    if (registro && registro.categoria === categoriaSelecionada && registro.nome) {
+                        listaNomes.push(registro.nome.toUpperCase());
                     }
                 }
 
-                // Remove nomes duplicados e organiza em ordem alfabética
-                listaNomes = [...new Set(listaNomes)];
+                // Organiza em ordem alfabética
                 listaNomes.sort();
 
                 if (listaNomes.length > 0) {
@@ -108,12 +118,12 @@
                         selectPiloto.appendChild(opt);
                     });
                 } else {
-                    selectPiloto.innerHTML = '<option value="">Nenhum piloto estruturado</option>';
+                    selectPiloto.innerHTML = '<option value="">Nenhum piloto nesta categoria</option>';
                 }
             } else {
                 selectPiloto.innerHTML = '<option value="">Nenhum piloto cadastrado</option>';
             }
-        });
+        }
 
         function atualizarEtapaFirebase() {
             const nome = document.getElementById('etapa').value;
@@ -172,21 +182,21 @@
             document.getElementById('tempo').value = "";
         }
 
+        // ALTERADO: Agora remove exclusivamente o nó de tempos ('pilotos')
         function limparBanco() {
-            const senha = prompt("CUIDADO: Isso apagará PILOTOS e CONFIGURAÇÕES.\nDigite a senha para confirmar:");
+            const senha = prompt("CUIDADO: Isso apagará TODOS OS TEMPOS das voltas.\nA lista de pilotos cadastrados continuará salva.\nDigite a senha para confirmar:");
             if (senha === "75999862628") {
-                db.ref('/').remove()
+                db.ref('pilotos').remove()
                     .then(() => {
-                        alert("Todos os dados do banco foram resetados!");
+                        alert("Os tempos das voltas foram completamente limpos!");
                         window.location.reload();
                     })
-                    .catch((e) => alert("Erro ao apagar: " + e));
+                    .catch((e) => alert("Erro ao apagar tempos: " + e));
             } else if (senha !== null) {
                 alert("Senha incorreta!");
             }
         }
 
-        // Funções auxiliares de tempo
         function tParaMs(t) {
             if (!t || t === "00:00:000") return 0;
             const p = t.split(':');
@@ -247,7 +257,7 @@
                 doc.text("RELATÓRIO DE PROVA", 46, 20);
                 
                 doc.setFontSize(12);
-                doc.text("CAMPEONATO BAIANO DE RALLY INDOOR 4X4", 46, 27);
+                doc.text("CAMPEONATO BRASILEIRO DE RALLY INDOOR 4X4", 46, 27);
                 
                 doc.setFontSize(11);
                 doc.setFont("helvetica", "normal");
