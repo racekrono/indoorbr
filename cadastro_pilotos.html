@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro Prévio de Pilotos</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background-color: #f0f2f5; padding: 20px; }
+        .card { max-width: 450px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        input, select, button { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+        button { cursor: pointer; font-weight: bold; transition: 0.3s; background-color: #007bff; color: white; border: none; }
+        button:hover { background-color: #0056b3; }
+        .btn-back { background-color: #6c757d; margin-top: 15px; }
+        .btn-back:hover { background-color: #5a6268; }
+        ul { text-align: left; padding-left: 20px; margin-top: 20px; max-height: 200px; overflow-y: auto; border: 1px solid #eee; padding: 10px; border-radius: 8px; }
+        li { padding: 5px 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        .btn-del { width: auto; padding: 2px 8px; margin: 0; background-color: #dc3545; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>Cadastro de Pilotos</h2>
+        
+        <select id="categoria" onchange="listarPilotosCadastrados()">
+            <option value="PRODUCTION">PRODUCTION</option>
+            <option value="SUPER PRODUCTION">SUPER PRODUCTION</option>
+            <option value="PROTOTIPO">PROTOTIPO</option>
+            <option value="UTV">UTV</option>
+            <option value="INICIANTE">INICIANTE</option>
+        </select>
+
+        <input type="text" id="nomePiloto" placeholder="NOME DO PILOTO" style="text-transform: uppercase;">
+        
+        <button onclick="cadastrarPiloto()">CADASTRAR PILOTO</button>
+        
+        <h3>Pilotos Cadastrados na Categoria:</h3>
+        <ul id="listaDePilotos"></ul>
+
+        <button class="btn-back" onclick="window.location.href='index.html'">VOLTAR AO PAINEL</button>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC4ajZM_W0_qGOlrlRoPn6DUsUBUm4qAcc",
+            authDomain: "crono-rrb.firebaseapp.com",
+            databaseURL: "https://crono-rrb-default-rtdb.firebaseio.com",
+            projectId: "crono-rrb",
+            storageBucket: "crono-rrb.firebasestorage.app",
+            messagingSenderId: "1472207720",
+            appId: "1:1472207720:web:11502aed4117b1fda714dd"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        function cadastrarPiloto() {
+            const cat = document.getElementById('categoria').value;
+            const nome = document.getElementById('nomePiloto').value.trim().toUpperCase();
+
+            if (!nome) {
+                alert("Digite o nome do piloto!");
+                return;
+            }
+
+            const idCadastro = btoa(cat + "_" + nome).replace(/=/g, "");
+            
+            db.ref('lista_pilotos/' + idCadastro).set({
+                categoria: cat,
+                nome: nome
+            }).then(() => {
+                alert("Piloto cadastrado com sucesso!");
+                document.getElementById('nomePiloto').value = "";
+                listarPilotosCadastrados();
+            });
+        }
+
+        function listarPilotosCadastrados() {
+            const catSelecionada = document.getElementById('categoria').value;
+            const listaUl = document.getElementById('listaDePilotos');
+            listaUl.innerHTML = "Carregando...";
+
+            db.ref('lista_pilotos').orderByChild('categoria').equalTo(catSelecionada).once('value', snapshot => {
+                listaUl.innerHTML = "";
+                const dados = snapshot.val();
+                if (!dados) {
+                    listaUl.innerHTML = "<li>Nenhum piloto nesta categoria.</li>";
+                    return;
+                }
+                for (let key in dados) {
+                    listaUl.innerHTML += `<li>${dados[key].nome} <button class="btn-del" onclick="removerPiloto('${key}')">X</button></li>`;
+                }
+            });
+        }
+
+        function removerPiloto(key) {
+            if (confirm("Deseja remover este piloto da lista de cadastro?")) {
+                db.ref('lista_pilotos/' + key).remove().then(() => listarPilotosCadastrados());
+            }
+        }
+
+        // Inicia listando a primeira categoria
+        listarPilotosCadastrados();
+    </script>
+</body>
+</html>
