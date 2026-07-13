@@ -38,7 +38,7 @@
                 <option value="INICIANTE">INICIANTE</option>
             </select>
 
-            <!-- Seletor de Pilotos Inteligente -->
+            <!-- Seletor Dinâmico de Pilotos Corrigido -->
             <select id="piloto">
                 <option value="">Carregando pilotos...</option>
             </select>
@@ -62,55 +62,42 @@
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
 
     <script>
-        // Configuração do Firebase
+        // ATUALIZADO: Usando agora o novo projeto 'indoorbr'
         const firebaseConfig = {
-            apiKey: "AIzaSyC4ajZM_W0_qGOlrlRoPn6DUsUBUm4qAcc",
-            authDomain: "crono-rrb.firebaseapp.com",
-            databaseURL: "https://crono-rrb-default-rtdb.firebaseio.com",
-            projectId: "crono-rrb",
-            storageBucket: "crono-rrb.firebasestorage.app",
-            messagingSenderId: "1472207720",
-            appId: "1:1472207720:web:11502aed4117b1fda714dd"
+            apiKey: "AIzaSyA5ZUlJJUt48nmM9ef99YpKMX23pPiv_zs",
+            authDomain: "indoorbr.firebaseapp.com",
+            projectId: "indoorbr",
+            storageBucket: "indoorbr.firebasestorage.app",
+            messagingSenderId: "97329207938",
+            appId: "1:97329207938:web:d5fe8eb7a8bdc91d44329b"
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // Carrega o nome da etapa atual[cite: 3]
+        // Carrega o nome da etapa atual
         db.ref('configuracao/etapaAtual').on('value', (snapshot) => {
             if(snapshot.exists()) {
                 document.getElementById('etapa').value = snapshot.val();
             }
         });
 
-        // MAPEIA E EXTRAI TODOS OS PILOTOS INDEPENDENTE DE QUANTAS PASTAS O CADASTRO CRIE
-        db.ref('cadastro_pilotos').on('value', (snapshot) => {
+        // CORRIGIDO: Monitorando a tabela correta 'lista_pilotos' e mapeando .nome
+        db.ref('lista_pilotos').on('value', (snapshot) => {
             const selectPiloto = document.getElementById('piloto');
             selectPiloto.innerHTML = '<option value="">Selecione o Piloto</option>'; 
             
             if (snapshot.exists()) {
+                const dados = snapshot.val();
                 let listaNomes = [];
 
-                // Função recursiva para descer os nós de categorias até achar os nomes salvos
-                function extrairNomes(objeto) {
-                    if (typeof objeto === 'string') {
-                        listaNomes.push(objeto.toUpperCase());
-                    } else if (objeto && typeof objeto === 'object') {
-                        if (objeto.nome && typeof objeto.nome === 'string') {
-                            listaNomes.push(objeto.nome.toUpperCase());
-                        } else {
-                            for (let chave in objeto) {
-                                extrairNomes(objeto[chave]);
-                            }
-                        }
+                for (let id in dados) {
+                    if (dados[id] && dados[id].nome) {
+                        listaNomes.push(dados[id].nome.toUpperCase());
                     }
                 }
 
-                extrairNomes(snapshot.val());
-
-                // Remove duplicatas caso um piloto esteja cadastrado mais de uma vez
+                // Remove nomes duplicados e organiza em ordem alfabética
                 listaNomes = [...new Set(listaNomes)];
-
-                // Coloca os nomes em ordem alfabética para facilitar na hora do lançamento
                 listaNomes.sort();
 
                 if (listaNomes.length > 0) {
@@ -133,7 +120,7 @@
             db.ref('configuracao').update({ etapaAtual: nome });
         }
 
-        // Máscara do tempo (00:00:000)[cite: 3]
+        // Máscara do tempo (00:00:000)
         document.getElementById('tempo').addEventListener('input', function (e) {
             let v = e.target.value.replace(/\D/g, '');
             if (v.length > 4) {
@@ -199,6 +186,7 @@
             }
         }
 
+        // Funções auxiliares de tempo
         function tParaMs(t) {
             if (!t || t === "00:00:000") return 0;
             const p = t.split(':');
@@ -251,17 +239,15 @@
             img.crossOrigin = "Anonymous";
 
             img.onload = function() {
-                // Adiciona a logomarca no PDF[cite: 3]
                 doc.addImage(img, 'PNG', 15, 12, 26, 26);
                 
-                // Configurações do Cabeçalho em duas linhas com tamanho correto[cite: 3]
                 doc.setFontSize(16);
                 doc.setTextColor(0, 0, 0);
                 doc.setFont("helvetica", "bold");
                 doc.text("RELATÓRIO DE PROVA", 46, 20);
                 
                 doc.setFontSize(12);
-                doc.text("CAMPEONATO BRASILEIRO DE RALLY INDOOR 4X4", 46, 27);
+                doc.text("CAMPEONATO BAIANO DE RALLY INDOOR 4X4", 46, 27);
                 
                 doc.setFontSize(11);
                 doc.setFont("helvetica", "normal");
