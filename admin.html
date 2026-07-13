@@ -38,7 +38,7 @@
                 <option value="INICIANTE">INICIANTE</option>
             </select>
 
-            <!-- NOVIDADE: Seletor de Pilotos Pré-Cadastrados -->
+            <!-- Seletor de Pilotos Inteligente -->
             <select id="piloto">
                 <option value="">Carregando pilotos...</option>
             </select>
@@ -62,7 +62,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
 
     <script>
-        // Substitua aqui pelas credenciais do seu NOVO projeto assim que criá-lo!
+        // Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyC4ajZM_W0_qGOlrlRoPn6DUsUBUm4qAcc",
             authDomain: "crono-rrb.firebaseapp.com",
@@ -82,34 +82,47 @@
             }
         });
 
-        // NOVIDADE: Busca a lista de pilotos pré-cadastrados e preenche o <select>
+        // MAPEIA E EXTRAI TODOS OS PILOTOS INDEPENDENTE DE QUANTAS PASTAS O CADASTRO CRIE
         db.ref('cadastro_pilotos').on('value', (snapshot) => {
             const selectPiloto = document.getElementById('piloto');
-            selectPiloto.innerHTML = '<option value="">Selecione o Piloto</option>'; // Reseta
+            selectPiloto.innerHTML = '<option value="">Selecione o Piloto</option>'; 
             
             if (snapshot.exists()) {
-                const dados = snapshot.val();
                 let listaNomes = [];
 
-                // Extrai os nomes (tratando caso seja salvo como objeto ou array)
-                for (let id in dados) {
-                    if (typeof dados[id] === 'string') {
-                        listaNomes.push(dados[id].toUpperCase());
-                    } else if (dados[id] && dados[id].nome) {
-                        listaNomes.push(dados[id].nome.toUpperCase());
+                // Função recursiva para descer os nós de categorias até achar os nomes salvos
+                function extrairNomes(objeto) {
+                    if (typeof objeto === 'string') {
+                        listaNomes.push(objeto.toUpperCase());
+                    } else if (objeto && typeof objeto === 'object') {
+                        if (objeto.nome && typeof objeto.nome === 'string') {
+                            listaNomes.push(objeto.nome.toUpperCase());
+                        } else {
+                            for (let chave in objeto) {
+                                extrairNomes(objeto[chave]);
+                            }
+                        }
                     }
                 }
 
-                // Ordena os nomes em ordem alfabética para facilitar a busca do mesário
+                extrairNomes(snapshot.val());
+
+                // Remove duplicatas caso um piloto esteja cadastrado mais de uma vez
+                listaNomes = [...new Set(listaNomes)];
+
+                // Coloca os nomes em ordem alfabética para facilitar na hora do lançamento
                 listaNomes.sort();
 
-                // Adiciona as opções no seletor
-                listaNomes.forEach(nome => {
-                    const opt = document.createElement('option');
-                    opt.value = nome;
-                    opt.textContent = nome;
-                    selectPiloto.appendChild(opt);
-                });
+                if (listaNomes.length > 0) {
+                    listaNomes.forEach(nome => {
+                        const opt = document.createElement('option');
+                        opt.value = nome;
+                        opt.textContent = nome;
+                        selectPiloto.appendChild(opt);
+                    });
+                } else {
+                    selectPiloto.innerHTML = '<option value="">Nenhum piloto estruturado</option>';
+                }
             } else {
                 selectPiloto.innerHTML = '<option value="">Nenhum piloto cadastrado</option>';
             }
@@ -120,7 +133,7 @@
             db.ref('configuracao').update({ etapaAtual: nome });
         }
 
-        // Máscara do tempo[cite: 3]
+        // Máscara do tempo (00:00:000)[cite: 3]
         document.getElementById('tempo').addEventListener('input', function (e) {
             let v = e.target.value.replace(/\D/g, '');
             if (v.length > 4) {
@@ -134,7 +147,7 @@
         async function enviarDados() {
             const etapa = document.getElementById('etapa').value;
             const categoria = document.getElementById('categoria').value;
-            const piloto = document.getElementById('piloto').value; // Pega o valor selecionado no select
+            const piloto = document.getElementById('piloto').value; 
             const tempo = document.getElementById('tempo').value;
 
             if (!etapa || !piloto || tempo.length < 9) {
@@ -238,8 +251,10 @@
             img.crossOrigin = "Anonymous";
 
             img.onload = function() {
+                // Adiciona a logomarca no PDF[cite: 3]
                 doc.addImage(img, 'PNG', 15, 12, 26, 26);
                 
+                // Configurações do Cabeçalho em duas linhas com tamanho correto[cite: 3]
                 doc.setFontSize(16);
                 doc.setTextColor(0, 0, 0);
                 doc.setFont("helvetica", "bold");
